@@ -215,3 +215,14 @@ meter,progress { width:100%; accent-color:var(--accent); }
   .lab-art { min-height:145px; }
 }
 @media(max-width:460px) { .phrase-grid,.settings-grid { grid-template-columns:1fr; } .panel { padding:16px; } .hero-break { display:none; } .hero-actions .button { padding-inline:11px; } }
+.sign-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+.sign-heading { margin-bottom:0; }
+.sign-status { font-size:.75rem; font-weight:700; color:var(--accent); background:var(--mint); padding:4px 9px; border-radius:9px; }
+.sign-view { aspect-ratio:16/11; background:radial-gradient(ellipse at 85% 10%,#285041,#132921 75%); }
+.sign-status-box { padding:14px; border:1px solid var(--line); background:var(--subtle); border-radius:13px; }
+.sign-transcript { min-height:clamp(215px,32vw,370px); margin-top:6px; font:750 clamp(1.35rem,3vw,2.35rem)/1.35 "Manrope Variable",Manrope,sans-serif; padding:16px; }
+.sign-transcript::placeholder { font-size:1rem; font-weight:500; }
+.sign-timeline { border-top:1px solid var(--line); padding-top:15px; }
+.sign-tokens { display:flex; flex-wrap:wrap; gap:7px; list-style:none; padding:0; margin-top:10px; max-height:9rem; overflow:auto; }
+.sign-tokens li { background:var(--mint); color:var(--accent); font-size:.85rem; font-weight:700; padding:5px 9px; border-radius:8px; overflow-wrap:anywhere; }
+@media(max-width:740px) { .sign-grid { grid-template-columns:1fr; } }

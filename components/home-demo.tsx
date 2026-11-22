@@ -31,7 +31,7 @@ export function HeroDemo() {
 const tabs = [
   { title: 'Matn', icon: Keyboard, details: 'Gapingizni yozing va uni suhbatdoshingizga katta harflarda ko‘rsating.', href: '/muloqot' },
   { title: 'Ovoz', icon: Mic, details: 'Matnni ovozli o‘qing yoki brauzer qo‘llasa, mikrofon orqali javobni yozuvga aylantiring.', href: '/muloqot?javob=1' },
-  { title: 'Kamera', icon: Hand, details: 'Eksperimental laboratoriyada cheklangan qo‘l shakllarini aniqlab ko‘ring.', href: '/kamera' },
+  { title: 'Kamera', icon: Hand, details: 'Jonli kamera va tahrirlanadigan matnni oching. Ishoralarni tanish uchun tasdiqlangan model kerak.', href: '/kamera' },
 ]
 export function ToolTabs() {
   const [active, setActive] = useState(0)

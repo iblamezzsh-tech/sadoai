@@ -1,5 +1,5 @@
-const version = 'sadoai-app-1'
-const pages = ['/', '/muloqot', '/iboralar', '/kamera', '/sozlamalar', '/haqida', '/maxfiylik']
+const version = 'sadoai-app-2'
+const pages = ['/', '/muloqot', '/iboralar', '/kamera', '/kamera/tajriba', '/sozlamalar', '/haqida', '/maxfiylik']
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {

@@ -60,7 +60,7 @@ test('camera is opt-in and explicit permission denial has a fallback', async ({ 
     } })
   })
   await page.goto('/kamera')
-  await expect(page.getByText('Kamera o‘chiq')).toBeVisible()
+  await expect(page.getByText('Kamera o‘chiq', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => Reflect.get(window, 'cameraStarts'))).toBe(0)
   await page.getByRole('button', { name: 'Kamerani yoqish' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Kameraga ruxsat berilmadi.' })).toBeVisible()
@@ -82,7 +82,7 @@ test('manual partner input works when recognition is unsupported', async ({ page
 })
 
 test('each route fits the viewport and passes automated accessibility checks', async ({ page }) => {
-  for (const route of ['/', '/muloqot', '/iboralar', '/kamera', '/sozlamalar', '/haqida', '/maxfiylik']) {
+  for (const route of ['/', '/muloqot', '/iboralar', '/kamera', '/kamera/tajriba', '/sozlamalar', '/haqida', '/maxfiylik']) {
     await page.goto(route)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     expect(await page.locator('html').evaluate(node => node.scrollWidth <= node.clientWidth), route).toBeTruthy()
@@ -120,9 +120,47 @@ test('model download failure releases the opened camera stream', async ({ page }
     } })
   })
   await page.route('**/gesture_recognizer.task', route => route.abort())
-  await page.goto('/kamera')
+  await page.goto('/kamera/tajriba')
   await page.getByRole('button', { name: 'Kamerani yoqish' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Ishora modeli yuklanmadi.' })).toBeVisible()
   expect(await page.evaluate(() => Reflect.get(window, 'cameraTestStream').getTracks()[0].readyState)).toBe('ended')
-  await expect(page.getByText('Kamera o‘chiq')).toBeVisible()
+  await expect(page.getByText('Kamera o‘chiq', { exact: true })).toBeVisible()
+})
+
+test('sign workspace is honest without an Uzbek model and supports manual text', async ({ page }) => {
+  await page.goto('/kamera')
+  await expect(page.getByRole('heading', { name: 'Ishoradan matnga' })).toBeVisible()
+  await expect(page.getByText('Tasdiqlangan o‘zbek ishora tili modeli hali ulanmagan.')).toBeVisible()
+  const transcript = page.getByRole('textbox', { name: 'Jonli matn' })
+  await expect(transcript).toHaveValue('')
+  await transcript.fill('Qo‘lda yozilgan matn')
+  await page.getByRole('button', { name: 'Katta ekranda ko‘rsatish' }).click()
+  await expect(page.getByRole('dialog').getByText('Qo‘lda yozilgan matn')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Tozalash' }).click()
+  await expect(transcript).toHaveValue('')
+  await page.getByRole('link', { name: 'Qo‘l shakllari tajribasini ochish' }).click()
+  await expect(page).toHaveURL('/kamera/tajriba')
+})
+
+test('landmark download failure keeps preview usable until the user stops it', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 320
+      canvas.height = 240
+      canvas.getContext('2d')?.fillRect(0, 0, 320, 240)
+      const stream = canvas.captureStream(15)
+      Reflect.set(window, 'cameraTestStream', stream)
+      return stream
+    } })
+  })
+  await page.route('**/holistic_landmarker.task*', route => route.abort())
+  await page.goto('/kamera')
+  await page.getByRole('button', { name: 'Kamerani yoqish' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'nuqtalari modeli yuklanmadi' })).toBeVisible()
+  await expect(page.locator('video')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Jonli matn' })).toHaveValue('')
+  await page.getByRole('button', { name: 'Kamerani o‘chirish' }).click()
+  expect(await page.evaluate(() => Reflect.get(window, 'cameraTestStream').getTracks()[0].readyState)).toBe('ended')
 })

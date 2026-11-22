@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
-import { CameraLab } from '@/components/camera-lab'
-export const metadata: Metadata = { title: 'Ishora laboratoriyasi' }
-export default function Page() { return <CameraLab /> }
+import { SignStudio } from '@/components/sign-studio'
+
+export const metadata: Metadata = { title: 'Ishoradan matnga' }
+export default function Page() { return <SignStudio /> }

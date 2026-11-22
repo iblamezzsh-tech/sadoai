@@ -43,3 +43,7 @@ The production service worker caches core route documents and local scripts afte
 - Next steps include device validation with Uzbek speakers, usability research with Deaf and non-speaking people, and consent-based research into validated Uzbek Sign Language datasets and continuous signing.
 
 See [architecture](ARCHITECTURE.md) for state, privacy, and extension points.
+
+## Sign-to-text workspace
+
+Open `/kamera` for permission-gated local camera preview, optional hand/face/upper-body landmarks, and an editable live transcript with speech and full-screen display. A validated Uzbek Sign Language model is required for automatic output. The generic hand-shape experiment is available at `/kamera/tajriba`. See [the sign model integration guide](SIGN_RECOGNITION.md) for dataset criteria, the export format, and release checks.

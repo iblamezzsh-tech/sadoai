@@ -16,3 +16,7 @@ Preferences and favorites use browser storage. The conversation timeline stays i
 ## Future entry points
 
 A validated recognition model can supply candidates through a separate adapter while retaining explicit confirmation. A future language endpoint would need server-side validation, rate limits, timeouts, and affirmative user approval. Optional sync should begin with explicit consent and a separate persistence adapter so core text and phrases remain independent of authentication.
+
+## Sign-to-text
+
+`components/use-sign-camera.ts` owns the camera lifecycle and schedules inference on distinct frames. `lib/sign-vision.ts` wraps MediaPipe Holistic and a sliding sequence reader. `lib/sign-recognition.ts` defines the model schema, feature encoding, unknown rejection, and temporal commit gate. The sign workspace appends stable vocabulary items to its editable in-memory transcript. The generic gesture demo uses a separate route, model, and output path.
