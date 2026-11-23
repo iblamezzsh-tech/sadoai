@@ -1,11 +1,13 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision'
-import { emptyGate, stabilize, type Landmarks, type Prediction } from '@/lib/sign-recognition'
-import { signModelUrl, sampleInterval } from '@/lib/sign-vision'
+import { emptyGate, maxFrameGap, sampleInterval, stabilize, type Landmarks, type Prediction } from '@/lib/sign-recognition'
+import type { SequenceModel } from '@/lib/sign-vision'
+
+const signModelUrl = process.env.NEXT_PUBLIC_UZ_SIGN_MODEL_URL
 import type { Preferences } from '@/lib/core'
 
-type Run = { controller: AbortController; stream?: MediaStream; landmarker?: HolisticLandmarker; frame: number; timer?: number }
+type Run = { controller: AbortController; stream?: MediaStream; landmarker?: HolisticLandmarker; model?: SequenceModel; inference?: Promise<void>; frame: number; timer?: number }
 type Camera = 'idle' | 'permission' | 'active'
 type Landmarker = 'idle' | 'loading' | 'ready' | 'error'
 type Recognition = 'unavailable' | 'waiting' | 'loading' | 'ready' | 'error'
@@ -17,6 +19,8 @@ function dispose(run: Run | null) {
   cancelAnimationFrame(run.frame)
   run.stream?.getTracks().forEach(track => track.stop())
   run.landmarker?.close()
+  const close = run.model?.close
+  if (close) void Promise.resolve(run.inference).then(close).catch(() => {})
 }
 function draw(canvas: HTMLCanvasElement | null, video: HTMLVideoElement, result?: Landmarks) {
   if (!canvas) return
@@ -140,7 +144,11 @@ export function useSignCamera(preferred: Preferences['camera'], onSign: (predict
       const { signal } = run.controller
       run.timer = window.setTimeout(() => run.controller.abort(), 20_000)
       // The landmark preview can run independently of the optional language model.
-      const modelResult = runtime.loadSignModel(signal).catch(() => null)
+      const modelResult = signModelUrl ? runtime.loadSignModel(signModelUrl, signal).then(async model => {
+        if (runRef.current !== run || signal.aborted) { await model.close?.(); return null }
+        run.model = model
+        return model
+      }).catch(() => null) : Promise.resolve(null)
       const tracker = await runtime.createLandmarker(signal)
       if (runRef.current !== run) { tracker.close(); return }
       run.landmarker = tracker
@@ -154,6 +162,7 @@ export function useSignCamera(preferred: Preferences['camera'], onSign: (predict
       let last = 0
       let lastMediaTime = -1
       let previous: Prediction | null = null
+      let generation = 0
 
       function publish(next: Prediction | null) {
         if (previous?.id !== next?.id || Math.round((previous?.confidence ?? 0) * 100) !== Math.round((next?.confidence ?? 0) * 100)) {
@@ -162,11 +171,25 @@ export function useSignCamera(preferred: Preferences['camera'], onSign: (predict
         }
       }
 
+      function failInference() {
+        if (runRef.current !== run) return
+        generation++
+        sequence?.reset()
+        publish(null)
+        run.landmarker = undefined
+        tracker.close()
+        draw(canvas.current, element!)
+        setLandmarker('error')
+        if (signModelUrl) setRecognition('error')
+        setStatus('Tahlil uzildi. Qayta boshlash uchun kamerani o‘chirib yoqing.')
+        cancelAnimationFrame(run.frame)
+      }
       function tick(now: number) {
         if (runRef.current !== run || !element) return
         const gap = now - last
-        if (last && gap > 450) {
+        if (last && gap > maxFrameGap) {
           // Skip a broken temporal window. Keep the last committed ID latched.
+          generation++
           sequence?.reset()
           gate = { ...gate, candidate: null, count: 0, quiet: 0 }
           publish(null)
@@ -186,22 +209,22 @@ export function useSignCamera(preferred: Preferences['camera'], onSign: (predict
                 faceLandmarks: result.faceLandmarks[0] ?? [],
               }
               draw(canvas.current, element, overlayRef.current ? landmarks : undefined)
-              if (!sequence || !model) return
-              const prediction = sequence.predict(landmarks, element.videoWidth / element.videoHeight)
-              publish(prediction)
-              const update = stabilize(gate, prediction, model.policy)
-              gate = update.gate
-              if (update.committed) commit.current(update.committed)
+              if (!sequence || !model || run.inference) return
+              const observedGeneration = generation
+              const apply = (prediction: Prediction | null) => {
+                if (runRef.current !== run || observedGeneration !== generation || document.hidden) return
+                publish(prediction)
+                const update = stabilize(gate, prediction, model.policy)
+                gate = update.gate
+                if (update.committed) commit.current(update.committed)
+              }
+              const prediction = sequence.predict(landmarks, element.videoWidth / element.videoHeight, now)
+              if (prediction instanceof Promise) {
+                run.inference = prediction.then(apply, failInference).finally(() => { run.inference = undefined })
+              } else apply(prediction)
             })
           } catch {
-            sequence?.reset()
-            publish(null)
-            run.landmarker = undefined
-            tracker.close()
-            draw(canvas.current, element)
-            setLandmarker('error')
-            if (signModelUrl) setRecognition('error')
-            setStatus('Tahlil uzildi. Qayta boshlash uchun kamerani o‘chirib yoqing.')
+            failInference()
             return
           }
         }
@@ -218,10 +241,5 @@ export function useSignCamera(preferred: Preferences['camera'], onSign: (predict
     }
   }
 
-  function switchCamera() {
-    const index = devices.findIndex(item => item.deviceId === device)
-    const next = devices[(index + 1) % devices.length]
-    if (next) void start(next.deviceId)
-  }
-  return { video, canvas, camera, landmarker, recognition, candidate, status, devices, overlay, setOverlay, mirror, start, stop, switchCamera }
+  return { video, canvas, camera, landmarker, recognition, candidate, status, devices, device, overlay, setOverlay, mirror, start, stop }
 }

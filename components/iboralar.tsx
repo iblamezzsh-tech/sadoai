@@ -8,7 +8,7 @@ import { PageHeader, useSado } from './shell'
 import { Dialog } from './ui/dialog'
 
 function searchable(text: string) {
-  return text.toLocaleLowerCase('uz').normalize('NFC').replace(/[‘’ʻʼ`']/g, '')
+  return text.toLocaleLowerCase('uz').normalize('NFC').replace(/[‘’ʻʼ`']/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 }
 export function Phrasebook() {
   const { prefs, favorites, setFavorites, append, setNotice } = useSado()
@@ -19,9 +19,10 @@ export function Phrasebook() {
   const [emergency, setEmergency] = useState(false)
   const [selection, setSelection] = useState('')
   const router = useRouter()
+  const terms = searchable(query).split(' ').filter(Boolean)
   const phrases = allPhrases.filter(item => (category === 'Barchasi' || item.category === category)
-    && (!onlyFavorites || favorites.includes(item.text)) && searchable(item.text).includes(searchable(query.trim())))
-  function usePhrase(text: string) {
+    && (!onlyFavorites || favorites.includes(item.text)) && terms.every(term => searchable(item.text).includes(term)))
+  function insertIntoComposer(text: string) {
     if (!navigator.onLine) {
       const phrase = allPhrases.find(item => item.text === text)
       if (phrase) window.location.assign('/muloqot?ibora=' + phrase.id)
@@ -45,7 +46,7 @@ export function Phrasebook() {
       <div className="chips" role="group" aria-label="Ibora turkumlari">{['Barchasi', ...categories].map(item => <button key={item} className="chip" aria-pressed={item === category} onClick={() => setCategory(item)}>{item}</button>)}</div>
       <div className="row"><button className="button secondary" aria-pressed={onlyFavorites} onClick={() => setOnlyFavorites(!onlyFavorites)}><Heart size={18} fill={onlyFavorites ? 'currentColor' : 'none'} /> {onlyFavorites ? 'Faqat saralanganlar' : 'Saralanganlar'}</button>
         {speech.speaking && <button className="button secondary" onClick={speech.stop}><Square size={16} /> Ovozni to‘xtatish</button>}</div>
-      {(!speech.supported || !speech.matching) && <p className="hint">{!speech.supported ? 'Bu brauzerda ovozli o‘qish ishlamaydi.' : 'Tanlangan tilda ovoz topilmadi. Iborani o‘qishda qurilmaning standart ovozi ishlatiladi.'}</p>}
+      {(speech.supported === false || (speech.supported && !speech.matching)) && <p className="hint">{!speech.supported ? 'Bu brauzerda ovozli o‘qish ishlamaydi.' : 'Tanlangan tilda ovoz topilmadi. Iborani o‘qishda qurilmaning standart ovozi ishlatiladi.'}</p>}
       {speech.voiceError && <p className="error" role="alert">{speech.voiceError}</p>}
       <p className="hint" role="status">{phrases.length} ta ibora</p>
     </div>
@@ -55,13 +56,13 @@ export function Phrasebook() {
         <button className="icon-button" aria-label="Iborani o‘qish" disabled={!speech.supported} onClick={() => speech.speak(text, true)}><Volume2 size={18} /></button>
         <button className="icon-button" aria-label="Iborani nusxalash" onClick={() => copy(text)}><Copy size={17} /></button>
         <button className="icon-button" aria-label="Saralangan ibora" aria-pressed={favorites.includes(text)} onClick={() => setFavorites(items => items.includes(text) ? items.filter(item => item !== text) : [...items, text])}><Heart size={18} fill={favorites.includes(text) ? 'currentColor' : 'none'} /></button>
-        <button className="button secondary" aria-label="Xabarga qo‘shish" onClick={() => usePhrase(text)}><Plus size={17} /> Qo‘shish</button>
+        <button className="button secondary" aria-label="Xabarga qo‘shish" onClick={() => insertIntoComposer(text)}><Plus size={17} /> Qo‘shish</button>
       </div>
-    </article>)}</div> : <p className="notice-box">Ibora topilmadi. Qidiruv yoki filtrlarni o‘zgartiring.</p>}
+    </article>)}</div> : <div className="notice-box"><p>Ibora topilmadi.</p><button className="button secondary" onClick={() => { setQuery(''); setCategory('Barchasi'); setOnlyFavorites(false) }}>Filtrlarni tozalash</button></div>}
     <Dialog open={emergency} onChange={setEmergency} title="Shoshilinch xabar">
       <p>Kerakli iborani tanlang. Xabarni qoralamadan ko‘rsatishingiz mumkin. Favqulodda xizmatlarga xabar yuborilmaydi.</p>
       <div className="chips">{phraseGroups[7].map(text => <button key={text} className="chip" aria-pressed={selection === text} onClick={() => setSelection(text)}>{text}</button>)}</div>
-      <div className="actions"><button className="button primary" disabled={!selection} onClick={() => { setEmergency(false); usePhrase(selection) }}>Xabarga qo‘shish</button></div>
+      <div className="actions"><button className="button primary" disabled={!selection} onClick={() => { setEmergency(false); insertIntoComposer(selection) }}>Xabarga qo‘shish</button></div>
     </Dialog>
   </div>
 }

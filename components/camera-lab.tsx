@@ -1,9 +1,13 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { GestureRecognizer, NormalizedLandmark } from '@mediapipe/tasks-vision'
-import { Camera, Check, CircleStop, RefreshCw, ScanLine, TriangleAlert, VideoOff, X } from 'lucide-react'
-import { confirmGesture, gestureLabels, holdFrames, observeGesture, type Candidate } from '@/lib/core'
+import { Camera, Check, CircleStop, RefreshCw, RotateCcw, ScanLine, Send, TriangleAlert, VideoOff, X } from 'lucide-react'
+import { confirmGesture, gestureLabels, holdFrames, observeGesture, type Candidate, type Gesture } from '@/lib/core'
+import { observeShortcut, shortcutLimit } from '@/lib/gesture-shortcuts'
+import { emptyGate } from '@/lib/sign-recognition'
+import { copyText } from '@/lib/browser'
 import { PageHeader, useSado } from './shell'
 
 type Run = { stream?: MediaStream; model?: GestureRecognizer; frame: number; controller: AbortController }
@@ -44,7 +48,7 @@ function draw(canvas: HTMLCanvasElement | null, video: HTMLVideoElement, points:
   }
 }
 export function CameraLab() {
-  const { prefs, append, setNotice } = useSado()
+  const { prefs, append, setNotice, shortcuts, setShortcuts, incoming, setIncoming, online } = useSado()
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState('')
@@ -55,6 +59,21 @@ export function CameraLab() {
   const [landmarks, setLandmarks] = useState(false)
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [confirmed, setConfirmed] = useState('')
+  const [shortcut, setShortcut] = useState<Gesture>('Open_Palm')
+  const [phrase, setPhrase] = useState<string | null>(null)
+  const [armed, setArmed] = useState(false)
+  const [output, setOutput] = useState({ text: '', undo: null as string | null })
+  const [announced, setAnnounced] = useState('')
+  const shortcutSettings = useRef({ armed, shortcuts })
+  const gate = useRef(emptyGate)
+  const mapped = Object.keys(shortcuts).length > 0
+  const configuredPhrase = shortcuts[shortcut] ?? ''
+  const editedPhrase = phrase ?? configuredPhrase
+  useEffect(() => {
+    shortcutSettings.current = { armed: armed && mapped, shortcuts }
+    gate.current = emptyGate
+    if (!mapped) setArmed(false)
+  }, [armed, mapped, shortcuts])
   const video = useRef<HTMLVideoElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const running = useRef<Run | null>(null)
@@ -77,6 +96,7 @@ export function CameraLab() {
     activeCandidate.current = null
     setConfirmed('')
     blocked.current = null
+    gate.current = emptyGate
   }
   async function start(selected = device) {
     reset()
@@ -125,12 +145,30 @@ export function CameraLab() {
       let previous: Candidate | null = null
       function sample(now: number) {
         if (running.current !== run || !run.model || !element) return
-        if (now - last >= 110 && element.readyState >= 2 && element.currentTime !== lastVideoTime) {
+        if (last && now - last > 500) {
+          gate.current = { ...gate.current, candidate: null, count: 0, quiet: 0 }
+          previous = null
+          activeCandidate.current = null
+          setCandidate(null)
+          draw(canvas.current, element, undefined, false)
+          last = 0
+        }
+        if (!document.hidden && now - last >= 110 && element.readyState >= 2 && element.currentTime !== lastVideoTime) {
           last = now
           lastVideoTime = element.currentTime
           try {
             const prediction = run.model.recognizeForVideo(element, now)
             const top = prediction.gestures[0]?.[0]
+            const settings = shortcutSettings.current
+            if (settings.armed) {
+              const result = observeShortcut(gate.current, top?.categoryName ?? '', top?.score ?? 0, settings.shortcuts)
+              gate.current = result.gate
+              const text = result.text
+              if (text) {
+                setOutput(current => ({ text: current.text.trimEnd() ? current.text.trimEnd() + '\n' + text : text, undo: current.text }))
+                setAnnounced('Qo‘shildi: ' + text)
+              }
+            }
             if (top?.categoryName !== blocked.current) blocked.current = null
             const next = blocked.current ? null : observeGesture(previous, top?.categoryName ?? '', top?.score ?? 0)
             if (next || previous) setCandidate(next)
@@ -142,12 +180,6 @@ export function CameraLab() {
             reset('error', 'Qo‘l shaklini tahlil qilib bo‘lmadi. Kamerani qayta yoqing.')
             return
           }
-        }
-        if (previous && now - last > 500) {
-          previous = null
-          activeCandidate.current = null
-          setCandidate(null)
-          draw(canvas.current, element, undefined, false)
         }
         run.frame = requestAnimationFrame(sample)
       }
@@ -161,6 +193,22 @@ export function CameraLab() {
         : 'Kamera ishga tushmadi. Kameradan foydalanayotgan boshqa ilovani yoping va qayta urinib ko‘ring.')
     }
   }
+  function saveShortcut() {
+    const text = editedPhrase.trim()
+    if (!text || text.length > shortcutLimit) return
+    setShortcuts(current => ({ ...current, [shortcut]: text }))
+    setPhrase(null)
+    setNotice('Shaxsiy qisqa buyruq saqlandi.')
+  }
+  function removeShortcut() {
+    setShortcuts(current => {
+      const next = { ...current }
+      delete next[shortcut]
+      return next
+    })
+    setPhrase(null)
+    setNotice('Shaxsiy qisqa buyruq o‘chirildi.')
+  }
   function reject() {
     blocked.current = activeCandidate.current?.name ?? null
     activeCandidate.current = null
@@ -169,7 +217,7 @@ export function CameraLab() {
   }
 
   return <div className="shell workspace">
-    <PageHeader eyebrow="TAJRIBA" title="Ishora laboratoriyasi" description="Kamera yordamida ayrim qo‘l harakatlarini aniqlashni sinab ko‘ring." />
+    <PageHeader eyebrow="TAJRIBA" title="Qo‘l harakatlari tajribasi" description="Kamera yordamida ayrim qo‘l harakatlarini aniqlashni sinab ko‘ring." />
     <div className="workspace-grid">
       <section className="panel">
         <div className="panel-heading"><h2>Kamera tasviri</h2><ScanLine size={20} /></div>
@@ -202,6 +250,29 @@ export function CameraLab() {
           </>}
           {confirmed && <div><p><strong>Tasdiqlangan qo‘l shakli</strong><br />{confirmed}</p><div className="actions"><button className="button primary" onClick={() => { append(confirmed); setNotice('Tasdiqlangan qo‘l shakli qoralamaga qo‘shildi.'); router.push('/muloqot') }}>Xabarga qo‘shish</button><button className="button secondary" onClick={reject}>Natijani tozalash</button></div></div>}
         </section>
+        <section className="panel stack" aria-labelledby="shortcut-title">
+          <div><h2 id="shortcut-title">Shaxsiy imo buyruqlari</h2><p>Qo‘l shakliga o‘zingiz matn biriktiring. Bu sizning shaxsiy buyrug‘ingiz. O‘zbek ishora tili tarjimasi uchun alohida model kerak.</p></div>
+          <label className="field">Qo‘l shakli<select value={shortcut} onChange={event => { setShortcut(event.target.value as Gesture); setPhrase(null) }}>
+            {Object.entries(gestureLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select></label>
+          <label className="field">Biriktiriladigan matn<input className="text-input" type="text" maxLength={shortcutLimit} value={editedPhrase} onChange={event => setPhrase(event.target.value)} /></label>
+          <div className="row">
+            <button className="button secondary" disabled={!editedPhrase.trim() || editedPhrase.trim() === configuredPhrase} onClick={saveShortcut}>Buyruqni saqlash</button>
+            <button className="button secondary danger" disabled={!configuredPhrase} onClick={removeShortcut}>Buyruqni o‘chirish</button>
+          </div>
+          <label className="check-row"><input type="checkbox" checked={armed} disabled={!mapped} onChange={event => setArmed(event.target.checked)} /> Tanishda matnni avtomatik qo‘shish</label>
+          <p className="hint">{armed ? 'Model kamida 82% ishonch bilan barqaror qo‘l shaklini topsa, siz biriktirgan matn qo‘shiladi.' : 'Avtomatik qo‘shish uchun avval buyruq saqlang va ushbu rejimni yoqing.'}</p>
+          <label className="field">Buyruqlardan yig‘ilgan matn<textarea value={output.text} onChange={event => setOutput({ text: event.target.value, undo: null })} placeholder="Matn shu yerda chiqadi." /></label>
+          <p className="sr-only" role="status">{announced}</p>
+          <div className="row">
+            <button className="button secondary" disabled={output.undo === null} onClick={() => setOutput({ text: output.undo ?? '', undo: null })}><RotateCcw size={16} /> Qaytarish</button>
+            <button className="button secondary" disabled={!output.text.trim()} onClick={async () => setNotice(await copyText(output.text) ? 'Matn nusxalandi.' : 'Matnni belgilab, qo‘lda nusxalang.')}>Nusxalash</button>
+            <button className="button secondary" disabled={!output.text} onClick={() => { setOutput({ text: '', undo: null }); setAnnounced('') }}>Tozalash</button>
+            <button className="button primary" disabled={!output.text.trim() || !online || !!incoming} onClick={() => { setIncoming(output.text); router.push('/muloqot') }}><Send size={16} /> Studiyaga o‘tkazish</button>
+          </div>
+          {!!incoming && <Link href="/muloqot" className="text-link">Kutilayotgan matnni studiyada ochish</Link>}
+        </section>
+        <Link href="/kamera" className="text-link">Ishoradan matnga sahifasiga qaytish</Link>
         <section className="panel"><div className="row"><TriangleAlert size={19} /><h2>Tajriba chegaralari</h2></div><p>Model faqat cheklangan qo‘l shakllarini ajratadi. O‘zbek ishora tilini tarjima qilish uchun alohida tekshirilgan model kerak.</p><div className="chips">{Object.values(gestureLabels).map(label => <span className="hint" key={label}>{label}</span>)}</div></section>
       </div>
     </div>

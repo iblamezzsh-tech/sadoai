@@ -1,4 +1,4 @@
-const version = 'sadoai-app-2'
+const version = 'sadoai-app-4'
 const pages = ['/', '/muloqot', '/iboralar', '/kamera', '/kamera/tajriba', '/sozlamalar', '/haqida', '/maxfiylik']
 
 self.addEventListener('install', event => {

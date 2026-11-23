@@ -13,7 +13,7 @@ export default function Page() {
         <Link href="/muloqot" className="text-link">Muloqot studiyasini ochish</Link>
       </section>
       <section className="panel"><h2>Keyingi tadqiqotlar</h2><p>O‘zbek ishora tilini tanish uchun ishora tilidan foydalanadigan hamjamiyat bilan ishlash, rozilik asosida ma’lumot yig‘ish va maxsus model tayyorlash rejalashtirilgan. Ketma-ket ishoralarni ajratish va qo‘shimcha qulayliklarni sinash ham shu ishning bir qismi.</p></section>
-      <Feedback />
+      <Feedback canSubmit={Boolean(process.env.FEEDBACK_WEBHOOK_URL)} />
     </div>
   </div>
 }

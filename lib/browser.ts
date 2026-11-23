@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Preferences } from './core'
 
 export async function copyText(text: string) {
@@ -11,13 +11,13 @@ export function polishSpacing(text: string) {
 }
 export function useSpeech(prefs: Preferences) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
-  const [supported, setSupported] = useState(false)
+  const [supported, setSupported] = useState<boolean | null>(null)
   const [speaking, setSpeaking] = useState(false)
   const [voiceError, setVoiceError] = useState('')
   const current = useRef<SpeechSynthesisUtterance | null>(null)
   useEffect(() => {
-    if (!('speechSynthesis' in window)) return
     const synth = window.speechSynthesis
+    if (!synth || typeof window.SpeechSynthesisUtterance !== 'function') { setSupported(false); return }
     const refresh = () => setVoices(synth.getVoices())
     setSupported(true)
     refresh()
@@ -51,7 +51,8 @@ export function useSpeech(prefs: Preferences) {
     speech.onerror = () => finish('Matnni ovozli o‘qib bo‘lmadi. Xabarni ekranda ko‘rsating.')
     current.current = speech
     setSpeaking(true)
-    window.speechSynthesis.speak(speech)
+    try { window.speechSynthesis.speak(speech) }
+    catch { finish('Matnni ovozli o‘qib bo‘lmadi. Xabarni ekranda ko‘rsating.') }
   }
   return { supported, matching: matching.length > 0, speaking, voiceError, speak, stop }
 }
@@ -74,21 +75,24 @@ function speechClass() {
   return browser.SpeechRecognition || browser.webkitSpeechRecognition
 }
 export function useRecognition(language: string, onText: (text: string) => void) {
-  const [supported, setSupported] = useState(false)
+  const [supported, setSupported] = useState<boolean | null>(null)
   const [state, setState] = useState<'idle' | 'loading' | 'listening'>('idle')
   const [error, setError] = useState('')
   const [interim, setInterim] = useState('')
   const session = useRef<Recognition | null>(null)
   const generation = useRef(0)
-  useEffect(() => {
-    setSupported(!!speechClass())
-    return () => { generation.current++; session.current?.abort(); session.current = null }
-  }, [])
-  function cancel() {
+  const invalidate = useCallback(() => {
     generation.current++
     const active = session.current
     session.current = null
     active?.abort()
+  }, [])
+  useEffect(() => {
+    setSupported(!!speechClass())
+    return invalidate
+  }, [invalidate])
+  function cancel() {
+    invalidate()
     setState('idle')
     setInterim('')
   }

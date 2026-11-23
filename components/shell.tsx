@@ -2,8 +2,10 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { AudioLines, BookOpen, Camera, House, MessageCircle, Settings, ArrowUpRight, Moon, Sun, WifiOff } from 'lucide-react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useCallback, useEffect, useState } from 'react'
 import { defaults, parsePreferences, parseHistory, readLocal, saveLocal, removeLocal, insertPhrase, type Entry, type Preferences, type Speaker } from '@/lib/core'
+
+import { parseShortcuts, type GestureShortcuts } from '@/lib/gesture-shortcuts'
 
 const nav = [
   { href: '/', label: 'Bosh sahifa', icon: House },
@@ -18,6 +20,9 @@ export function Brand() {
 function useShellState() {
   const [prefs, setPrefs] = useState(defaults)
   const [drafts, setDrafts] = useState({ self: '', partner: '' })
+  const [incoming, setIncoming] = useState('')
+  const [shortcuts, setShortcuts] = useState<GestureShortcuts>({})
+  const [cameraDrafts, setCameraDrafts] = useState<{ id: string; text: string }[]>([])
   const [history, setHistory] = useState<Entry[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [ready, setReady] = useState(false)
@@ -26,6 +31,7 @@ function useShellState() {
   useEffect(() => {
     const settings = parsePreferences(readLocal('prefs', defaults))
     setPrefs(settings)
+    setShortcuts(parseShortcuts(readLocal('gesture-shortcuts', {})))
     if (settings.history) setHistory(parseHistory(readLocal('history', [])))
     const saved = readLocal('favorites', [])
     if (Array.isArray(saved)) setFavorites(saved.filter((item): item is string => typeof item === 'string'))
@@ -44,6 +50,7 @@ function useShellState() {
     document.documentElement.dataset.motion = prefs.motion ? 'on' : 'off'
   }, [ready, prefs])
   useEffect(() => { if (ready) saveLocal('favorites', favorites) }, [ready, favorites])
+  useEffect(() => { if (ready) saveLocal('gesture-shortcuts', shortcuts) }, [ready, shortcuts])
   useEffect(() => {
     if (!ready) return
     if (prefs.history) saveLocal('history', history)
@@ -54,21 +61,24 @@ function useShellState() {
     const timer = setTimeout(() => setNotice(''), 3900)
     return () => clearTimeout(timer)
   }, [notice])
-  function setDraft(speaker: Speaker, text: string) {
+  const setDraft = useCallback((speaker: Speaker, text: string) => {
     setDrafts(current => ({ ...current, [speaker]: text }))
-  }
+  }, [])
   function append(phrase: string, speaker: Speaker = 'self') {
     setDrafts(current => ({ ...current, [speaker]: insertPhrase(current[speaker], phrase) }))
   }
   function clearData() {
-    for (const key of ['prefs', 'history', 'favorites']) removeLocal(key)
+    for (const key of ['prefs', 'history', 'favorites', 'gesture-shortcuts']) removeLocal(key)
     setPrefs(defaults)
     setFavorites([])
     setHistory([])
     setDrafts({ self: '', partner: '' })
+    setIncoming('')
+    setShortcuts({})
+    setCameraDrafts([])
     setNotice('Mahalliy ma’lumotlar tozalandi.')
   }
-  return { prefs, setPrefs, drafts, setDraft, append, history, setHistory, favorites, setFavorites, notice, setNotice, clearData, online }
+  return { prefs, setPrefs, drafts, shortcuts, setShortcuts, incoming, setIncoming, cameraDrafts, setCameraDrafts, setDraft, append, history, setHistory, favorites, setFavorites, notice, setNotice, clearData, online }
 }
 const Context = createContext<ReturnType<typeof useShellState> | null>(null)
 export function useSado() {

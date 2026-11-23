@@ -5,6 +5,8 @@ import {
   type Candidate,
 } from '../lib/core'
 import { polishSpacing } from '../lib/browser'
+import { observeShortcut, parseShortcuts } from '../lib/gesture-shortcuts'
+import { emptyGate } from '../lib/sign-recognition'
 
 test('phrases append to multiline Unicode text and remain editable', () => {
   assert.equal(insertPhrase('', quick[0]), 'Assalomu alaykum')
@@ -56,4 +58,29 @@ test('confirmation yields only the supported gesture label after a stable hold',
     sample = observeGesture(sample, 'Open_Palm', .75)
     assert.equal(confirmGesture(sample), i === holdFrames ? 'Ochiq kaft' : null)
   }
+})
+
+test('personal shortcuts require a stable supported category and a separate event before repeating', () => {
+  const mapping = parseShortcuts({ Open_Palm: ' Salom ', Closed_Fist: ' '.repeat(170), Unknown: 'Xato' })
+  assert.deepEqual(mapping, { Open_Palm: 'Salom' })
+  let gate = emptyGate
+  function detect(name: string, score: number, count: number) {
+    const phrases = []
+    for (let i = 0; i < count; i++) {
+      const sample = observeShortcut(gate, name, score, mapping)
+      gate = sample.gate
+      if (sample.text) phrases.push(sample.text)
+    }
+    return phrases
+  }
+  assert.deepEqual(detect('Unknown', 1, 8), [])
+  assert.deepEqual(detect('Open_Palm', .79, 8), [])
+  assert.deepEqual(detect('Open_Palm', .93, holdFrames - 1), [])
+  assert.deepEqual(detect('Open_Palm', .93, 50), ['Salom'])
+  assert.deepEqual(detect('None', .99, 3), [])
+  assert.deepEqual(detect('Open_Palm', .97, holdFrames), [])
+  assert.deepEqual(detect('None', .99, 4), [])
+  assert.deepEqual(detect('Open_Palm', .97, holdFrames), ['Salom'])
+  assert.deepEqual(detect('Closed_Fist', .97, holdFrames), [])
+  assert.deepEqual(detect('Open_Palm', .97, holdFrames), ['Salom'])
 })

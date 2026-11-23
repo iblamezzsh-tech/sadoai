@@ -20,3 +20,7 @@ A validated recognition model can supply candidates through a separate adapter w
 ## Sign-to-text
 
 `components/use-sign-camera.ts` owns the camera lifecycle and schedules inference on distinct frames. `lib/sign-vision.ts` wraps MediaPipe Holistic and a sliding sequence reader. `lib/sign-recognition.ts` defines the model schema, feature encoding, unknown rejection, and temporal commit gate. The sign workspace appends stable vocabulary items to its editable in-memory transcript. The generic gesture demo uses a separate route, model, and output path.
+
+Camera-to-studio transfer is explicit and uses in-memory state. The user can append to the primary draft, replace it, or keep a separate editable draft. The landmark buffer normalizes timestamps before evaluating a model. The validated manifest selects a linear classifier or an ONNX model, and the latter loads its WASM runtime on demand.
+
+The generic gesture experiment stores only user-configured text mappings in the browser. The arm switch and transcript are in memory. Both recognition modes cache downloaded model bytes for the tab session and release active streams and inference objects when stopped. Feedback uses a server-only optional HTTPS receiver and a local fallback.

@@ -47,3 +47,13 @@ See [architecture](ARCHITECTURE.md) for state, privacy, and extension points.
 ## Sign-to-text workspace
 
 Open `/kamera` for permission-gated local camera preview, optional hand/face/upper-body landmarks, and an editable live transcript with speech and full-screen display. A validated Uzbek Sign Language model is required for automatic output. The generic hand-shape experiment is available at `/kamera/tajriba`. See [the sign model integration guide](SIGN_RECOGNITION.md) for dataset criteria, the export format, and release checks.
+
+## Personalized gesture shortcuts
+
+On `/kamera/tajriba`, select one of the supported generic MediaPipe hand shapes and save your own phrase. Enable automatic additions for the current visit and start the camera. A configured phrase is inserted after six consecutive frames at or above 82% model confidence. A held gesture adds one entry. To repeat it, release the shape for four uncertain frames or show a different stable supported shape first. You can edit, undo, copy, clear, or transfer the resulting text to the Communication Studio. The phrase assignments stay in this browser and can be deleted individually or through Settings. The experiment uses generic gesture categories. The validated Uzbek Sign Language model has a separate configuration and release process.
+
+## Feedback delivery
+
+Set `FEEDBACK_WEBHOOK_URL` to an HTTPS POST receiver you control, optionally set the server-only `FEEDBACK_WEBHOOK_TOKEN` for bearer authentication, and rebuild and deploy. The receiver accepts JSON with `category`, `message`, and optional `contact`. Return 2xx only after the feedback is durably accepted and use rate limits at the deployment edge and receiver before public activation. The app uses a seven-second timeout and treats non-2xx responses as failed delivery. Restrict receiver access and define retention for contact details. With no configured receiver, the form offers device-only copy and download.
+
+Run `npm run lint` to check Next.js and React hook rules. Browser tests cover desktop, tablet, and mobile.

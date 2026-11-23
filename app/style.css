@@ -226,3 +226,26 @@ meter,progress { width:100%; accent-color:var(--accent); }
 .sign-tokens { display:flex; flex-wrap:wrap; gap:7px; list-style:none; padding:0; margin-top:10px; max-height:9rem; overflow:auto; }
 .sign-tokens li { background:var(--mint); color:var(--accent); font-size:.85rem; font-weight:700; padding:5px 9px; border-radius:8px; overflow-wrap:anywhere; }
 @media(max-width:740px) { .sign-grid { grid-template-columns:1fr; } }
+.sign-grid { grid-template-areas:"camera transcript" "options transcript"; grid-template-rows:auto 1fr; }
+.sign-camera-panel { grid-area:camera; }
+.sign-output-panel { grid-area:transcript; }
+.sign-camera-options { grid-area:options; }
+.sign-output-panel .panel-heading { margin-bottom:0; }
+.sign-output-panel .button[aria-pressed=true] { color:var(--accent); background:var(--mint); border-color:var(--accent); }
+.sign-transcript { font-size:clamp(1.35rem,calc(1rem + 1.35vw),2.5rem); }
+@media(max-width:740px) {
+  .sign-grid { grid-template-areas:"camera" "transcript" "options"; grid-template-rows:auto; gap:12px; }
+  .sign-workspace .page-header { margin-bottom:15px; }
+  .sign-view { aspect-ratio:16/8; }
+  .sign-transcript { min-height:8rem; }
+}
+.sign-demo { width:min(100%,390px); }
+.demo-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:10px; gap:4px; background:#f3f6ef; }
+.demo-steps button { min-height:44px; border-radius:8px; font-weight:700; font-size:.78rem; padding:4px; color:#27483c; }
+.demo-steps button[aria-pressed=true] { background:#dff2e7; color:#0a553d; }
+.sign-demo-state { min-height:137px; padding:15px; display:grid; align-content:start; gap:6px; }
+.sign-demo-state p { margin:0; color:#52645a; font-size:.9rem; }
+.sign-demo-state strong { color:#14674e; font:800 1.4rem/1.2 "Manrope Variable",Manrope,sans-serif; }
+.icon-button[aria-pressed=true] { background:var(--mint); color:var(--accent); border-color:var(--accent); }
+@media(max-width:740px) { .hero .demo { min-height:330px; padding-bottom:22px; } }
+.text-input { min-height:46px; width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:10px; color:var(--text); background:var(--bg); font:inherit; }

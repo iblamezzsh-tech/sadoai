@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { classify, emptyGate, encodeFrame, frameWidth, parseModel, stabilize, type Prediction } from '../lib/sign-recognition'
+import { classify, createLandmarkBuffer, decodeLogits, parseOnnxContract, emptyGate, encodeFrame, frameWidth, parseModel, stabilize, type Prediction } from '../lib/sign-recognition'
 import { createSequenceReader } from '../lib/sign-vision'
 
 test('stable signs append in order, held signs do not repeat, and release permits a repeat', () => {
@@ -68,4 +68,28 @@ test('sequence reader requires visible upper body and restarts the window after 
   assert.equal(sequence.predict(missing, 1), null)
   for (let i = 0; i < 5; i++) assert.equal(sequence.predict(data, 1), null)
   assert.equal(sequence.predict(data, 1)?.id, 'fixture')
+})
+
+test('timestamped windows normalize irregular video frames and reset after a stall', () => {
+  const buffer = createLandmarkBuffer(6)
+  const frame = (at: number) => {
+    const data = new Float32Array(frameWidth)
+    data[0] = at
+    data[3] = 1
+    return data
+  }
+  for (const at of [0, 105, 219, 320, 401]) assert.equal(buffer.push(frame(at), at), null)
+  const sequence = buffer.push(frame(510), 510)
+  assert.deepEqual(sequence?.map(item => item[0]), [10, 110, 210, 310, 410, 510])
+  assert.equal(buffer.push(frame(510), 510), null)
+  assert.equal(buffer.push(frame(1000), 1000), null)
+})
+
+test('ONNX metadata preserves label order and rejects invalid scores and unknown labels', () => {
+  const manifest = parseOnnxContract({ ...fixture(), schema: 'sadoai-holistic-onnx-v1', modelUrl: 'fixture.onnx' })
+  assert.deepEqual(manifest.labels.map(label => label.id), ['unknown', 'fixture'])
+  assert.equal(decodeLogits(manifest.labels, [7, 0], .8, .15), null)
+  assert.equal(decodeLogits(manifest.labels, [6, 6], .8, .15), null)
+  assert.equal(decodeLogits(manifest.labels, [NaN, 8], .8, .15), null)
+  assert.equal(decodeLogits(manifest.labels, [0, 8], .8, .15)?.id, 'fixture')
 })
